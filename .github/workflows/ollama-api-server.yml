@@ -28,9 +28,14 @@ jobs:
 
       - name: Create Public URL
         run: |
-          ./cloudflared tunnel --url http://localhost:11434 2>&1 | tee /tmp/cf.log &
+          ssh -p 443 -o StrictHostKeyChecking=no \
+            -o ServerAliveInterval=30 \
+            -R0:localhost:11434 \
+            a.pinggy.io 2>&1 | tee /tmp/pinggy.log &
           sleep 10
-          URL=$(grep -o 'https://[a-z0-9-]*.trycloudflare.com' /tmp/cf.log | head -1)
+          URL=$(grep -o 'https://[a-zA-Z0-9.-]*\.a\.pinggy\.io' /tmp/pinggy.log | head -1)
+          echo "================================"
           echo "Base URL: $URL/v1"
           echo "Model: gemma4:e4b"
+          echo "================================"
           sleep 21600
