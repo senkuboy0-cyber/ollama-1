@@ -1,0 +1,39 @@
+name: Ollama API Server
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  ollama:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Ollama
+        run: curl -fsSL https://ollama.com/install.sh | sh
+
+      - name: Start Ollama
+        run: |
+          ollama serve &
+          sleep 5
+
+      - name: Pull gemma4:e4b
+        run: ollama pull gemma4:e4b
+
+      - name: Install Cloudflared
+        run: |
+          curl -Lo cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+          chmod +x cloudflared
+
+      - name: Create Public URL
+        run: |
+          ./cloudflared tunnel --url http://localhost:11434 2>&1 | tee /tmp/cf.log &
+          sleep 10
+          URL=$(grep -o 'https://[a-z0-9-]*.trycloudflare.com' /tmp/cf.log | head -1)
+          echo "=========================================="
+          echo "   Ollama API URL: $URL"
+          echo "   OpenAI Base URL: $URL/v1"
+          echo "   Model: gemma4:e4b"
+          echo "=========================================="
+          sleep 21600
