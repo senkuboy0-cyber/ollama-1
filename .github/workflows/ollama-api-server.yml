@@ -21,19 +21,14 @@ jobs:
       - name: Pull gemma4:e4b
         run: ollama pull gemma4:e4b
 
-      - name: Install Cloudflared
-        run: |
-          curl -Lo cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
-          chmod +x cloudflared
-
       - name: Create Public URL
         run: |
-          ssh -p 443 -o StrictHostKeyChecking=no \
+          ssh -o StrictHostKeyChecking=no \
             -o ServerAliveInterval=30 \
-            -R0:localhost:11434 \
-            a.pinggy.io 2>&1 | tee /tmp/pinggy.log &
+            -R 80:localhost:11434 \
+            nokey@localhost.run 2>&1 | tee /tmp/lr.log &
           sleep 10
-          URL=$(grep -o 'https://[a-zA-Z0-9.-]*\.a\.pinggy\.io' /tmp/pinggy.log | head -1)
+          URL=$(grep -o 'https://[a-zA-Z0-9.-]*\.lhr\.life' /tmp/lr.log | head -1)
           echo "================================"
           echo "Base URL: $URL/v1"
           echo "Model: gemma4:e4b"
