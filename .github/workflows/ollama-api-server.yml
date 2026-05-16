@@ -10,6 +10,9 @@ jobs:
   ollama:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Install Ollama
         run: curl -fsSL https://ollama.com/install.sh | sh
 
@@ -21,136 +24,11 @@ jobs:
       - name: Pull gemma4:e4b
         run: ollama pull gemma4:e4b
 
-      - name: Create Chat UI Server
+      - name: Start Chat UI
         run: |
-          cat > /tmp/chat_server.py << 'EOF'
-          from http.server import HTTPServer, BaseHTTPRequestHandler
-          import urllib.request, json
-
-          MODEL = "gemma4:e4b"
-          OLLAMA = "http://localhost:11434"
-
-          HTML = """<!DOCTYPE html>
-          <html lang="bn">
-          <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Ollama Chat</title>
-          <style>
-            * { margin:0; padding:0; box-sizing:border-box; }
-            body { background:#1a1a2e; color:#eee; font-family:sans-serif; height:100vh; display:flex; flex-direction:column; }
-            #header { background:#16213e; padding:15px 20px; font-size:18px; font-weight:bold; color:#0f9; border-bottom:1px solid #333; }
-            #chat { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:12px; }
-            .msg { max-width:80%; padding:12px 16px; border-radius:18px; line-height:1.5; white-space:pre-wrap; }
-            .user { background:#0f3460; align-self:flex-end; border-radius:18px 18px 4px 18px; }
-            .bot { background:#16213e; align-self:flex-start; border-radius:18px 18px 18px 4px; border:1px solid #333; }
-            .typing { color:#0f9; font-style:italic; }
-            #inputarea { background:#16213e; padding:15px; border-top:1px solid #333; display:flex; gap:10px; }
-            #input { flex:1; background:#0d0d1a; border:1px solid #444; border-radius:25px; padding:12px 20px; color:#eee; font-size:15px; outline:none; }
-            #input:focus { border-color:#0f9; }
-            #send { background:#0f9; color:#000; border:none; border-radius:25px; padding:12px 25px; font-weight:bold; cursor:pointer; }
-            #send:hover { background:#0d7; }
-            #model-badge { font-size:12px; color:#0f9; margin-top:3px; }
-          </style>
-          </head>
-          <body>
-          <div id="header">
-            🤖 Ollama Chat
-            <div id="model-badge">Model: """ + MODEL + """</div>
-          </div>
-          <div id="chat"></div>
-          <div id="inputarea">
-            <input id="input" placeholder="Message লিখুন..." onkeydown="if(event.key==='Enter')send()"/>
-            <button id="send" onclick="send()">Send</button>
-          </div>
-          <script>
-          const chat = document.getElementById('chat');
-          const input = document.getElementById('input');
-          const history = [];
-
-          async function send() {
-            const text = input.value.trim();
-            if (!text) return;
-            input.value = '';
-            addMsg(text, 'user');
-            history.push({role:'user', content:text});
-            const botDiv = addMsg('...', 'bot typing');
-            try {
-              const res = await fetch('/api/chat', {
-                method: 'POST',
-                headers: {'Content-Type':'application/json'},
-                body: JSON.stringify({model:'""" + MODEL + """', messages:history, stream:true})
-              });
-              const reader = res.body.getReader();
-              const dec = new TextDecoder();
-              let full = '';
-              botDiv.className = 'msg bot';
-              botDiv.textContent = '';
-              while(true) {
-                const {done, value} = await reader.read();
-                if (done) break;
-                const lines = dec.decode(value).split('\\n').filter(l=>l.trim());
-                for (const line of lines) {
-                  try {
-                    const d = JSON.parse(line);
-                    if (d.message?.content) {
-                      full += d.message.content;
-                      botDiv.textContent = full;
-                      chat.scrollTop = chat.scrollHeight;
-                    }
-                  } catch(e) {}
-                }
-              }
-              history.push({role:'assistant', content:full});
-            } catch(e) {
-              botDiv.textContent = 'Error: ' + e.message;
-            }
-          }
-
-          function addMsg(text, cls) {
-            const div = document.createElement('div');
-            div.className = 'msg ' + cls;
-            div.textContent = text;
-            chat.appendChild(div);
-            chat.scrollTop = chat.scrollHeight;
-            return div;
-          }
-          </script>
-          </body>
-          </html>"""
-
-          class Handler(BaseHTTPRequestHandler):
-            def log_message(self, *a): pass
-            def do_OPTIONS(self):
-              self.send_response(200)
-              self.send_header('Access-Control-Allow-Origin','*')
-              self.send_header('Access-Control-Allow-Headers','Content-Type')
-              self.end_headers()
-            def do_GET(self):
-              self.send_response(200)
-              self.send_header('Content-Type','text/html; charset=utf-8')
-              self.end_headers()
-              self.wfile.write(HTML.encode())
-            def do_POST(self):
-              length = int(self.headers.get('Content-Length))
-              bodyfile)
-              req = urllib.request.Request(OLLAMA+self.path, data=body)
-              req.add_header('Content-Type','application/json')
-              try:
-                with urllib.request.urlopen(req) as r:
-                  self.send_response(200)
-                  self.send_header('Content-Type','application/json')
-                  self.send_header('Access-Control-Allow-Origin','*')
-                  self.end_headers()
-                  self.wfile.write(r.read())
-              except Exception as e:
-                self.send_response(500)
-                self.end_headers()
-                self.wfile.write(str(e).encode())
-
-          HTTPServer(('0.0.0.0', 8080), Handler).serve_forever()
-          EOF
-          python3 /tmp/chat_server.py &
+          cp .github/scripts/ui.html /tmp/ui.html
+          python3 .github/scripts/server.py &
+          sleep 3
 
       - name: Create Public URL
         run: |
@@ -161,6 +39,6 @@ jobs:
           sleep 10
           URL=$(grep -o 'https://[a-zA-Z0-9.-]*\.lhr\.life' /tmp/lr.log | head -1)
           echo "=============================="
-          echo "  Chat UI URL: $URL"
+          echo "  Chat UI: $URL"
           echo "=============================="
           sleep 21600
