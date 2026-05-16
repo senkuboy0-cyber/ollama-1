@@ -15,7 +15,7 @@ jobs:
 
       - name: Start Ollama
         run: |
-          ollama serve &
+          OLLAMA_ORIGINS="*" OLLAMA_HOST="0.0.0.0" ollama serve &
           sleep 5
 
       - name: Pull gemma4:e4b
@@ -31,9 +31,6 @@ jobs:
           ./cloudflared tunnel --url http://localhost:11434 2>&1 | tee /tmp/cf.log &
           sleep 10
           URL=$(grep -o 'https://[a-z0-9-]*.trycloudflare.com' /tmp/cf.log | head -1)
-          echo "=========================================="
-          echo "   Ollama API URL: $URL"
-          echo "   OpenAI Base URL: $URL/v1"
-          echo "   Model: gemma4:e4b"
-          echo "=========================================="
+          echo "Base URL: $URL/v1"
+          echo "Model: gemma4:e4b"
           sleep 21600
