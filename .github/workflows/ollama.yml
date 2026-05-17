@@ -1,4 +1,4 @@
-name: Ollama Chat UI
+name: Ollama Open WebUI
 
 on:
   push:
@@ -10,9 +10,6 @@ jobs:
   ollama:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Install Ollama
         run: curl -fsSL https://ollama.com/install.sh | sh
 
@@ -24,11 +21,14 @@ jobs:
       - name: Pull gemma4:e4b
         run: ollama pull gemma4:e4b
 
-      - name: Start Chat UI
+      - name: Install Open WebUI
+        run: pip install open-webui --break-system-packages
+
+      - name: Start Open WebUI
         run: |
-          cp .github/scripts/ui.html /tmp/ui.html
-          python3 .github/scripts/server.py &
-          sleep 3
+          OLLAMA_BASE_URL=http://localhost:11434 \
+          open-webui serve --port 8080 &
+          sleep 15
 
       - name: Create Public URL
         run: |
@@ -39,6 +39,6 @@ jobs:
           sleep 10
           URL=$(grep -o 'https://[a-zA-Z0-9.-]*\.lhr\.life' /tmp/lr.log | head -1)
           echo "=============================="
-          echo "  Chat UI: $URL"
+          echo "  Open WebUI: $URL"
           echo "=============================="
           sleep 21600
